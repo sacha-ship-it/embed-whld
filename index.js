@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, REST, Routes, SlashCommandBuilder } = require('discord.js')
+cconst { Client, GatewayIntentBits, EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, REST, Routes, SlashCommandBuilder } = require('discord.js')
 
 const TOKEN = process.env.TOKEN
 const CLIENT_ID = process.env.CLIENT_ID
@@ -8,6 +8,8 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 })
 
+const pendingEmbeds = new Map()
+
 async function registerCommands() {
   const commands = [
     new SlashCommandBuilder()
@@ -16,7 +18,7 @@ async function registerCommands() {
       .addChannelOption(o => o.setName('canal').setDescription('Canal où envoyer l\'embed').setRequired(true))
       .addStringOption(o => o.setName('couleur').setDescription('Couleur hex (ex: #FF0000)').setRequired(false))
       .addStringOption(o => o.setName('image').setDescription('URL de l\'image principale').setRequired(false))
-      .addStringOption(o => o.setName('thumbnail').setDescription('URL de la miniature (coin haut droit)').setRequired(false))
+      .addStringOption(o => o.setName('thumbnail').setDescription('URL de la miniature').setRequired(false))
       .addStringOption(o => o.setName('footer').setDescription('Texte du footer').setRequired(false))
       .addStringOption(o => o.setName('footer_icon').setDescription('URL de l\'icône du footer').setRequired(false))
       .addStringOption(o => o.setName('author').setDescription('Nom de l\'auteur').setRequired(false))
@@ -36,18 +38,21 @@ client.on('ready', async () => {
 client.on('interactionCreate', async interaction => {
 
   if (interaction.isChatInputCommand() && interaction.commandName === 'embed') {
-    const canal = interaction.options.getChannel('canal')
-    const couleur = interaction.options.getString('couleur') || '#5865F2'
-    const image = interaction.options.getString('image')
-    const thumbnail = interaction.options.getString('thumbnail')
-    const footer = interaction.options.getString('footer')
-    const footerIcon = interaction.options.getString('footer_icon')
-    const author = interaction.options.getString('author')
-    const authorIcon = interaction.options.getString('author_icon')
+    const userId = interaction.user.id
 
-    // Ouvrir le modal pour le titre et la description
+    pendingEmbeds.set(userId, {
+      canalId: interaction.options.getChannel('canal').id,
+      couleur: interaction.options.getString('couleur') || '#C084FC',
+      image: interaction.options.getString('image') || null,
+      thumbnail: interaction.options.getString('thumbnail') || null,
+      footer: interaction.options.getString('footer') || null,
+      footerIcon: interaction.options.getString('footer_icon') || null,
+      author: interaction.options.getString('author') || null,
+      authorIcon: interaction.options.getString('author_icon') || null,
+    })
+
     const modal = new ModalBuilder()
-      .setCustomId(`embed_modal_${canal.id}_${couleur}_${image || 'none'}_${thumbnail || 'none'}_${footer || 'none'}_${footerIcon || 'none'}_${author || 'none'}_${authorIcon || 'none'}`)
+      .setCustomId('embed_modal')
       .setTitle('Créer un embed')
 
     const titleInput = new TextInputBuilder()
@@ -80,35 +85,31 @@ client.on('interactionCreate', async interaction => {
     await interaction.showModal(modal)
   }
 
-  if (interaction.isModalSubmit() && interaction.customId.startsWith('embed_modal_')) {
-    const parts = interaction.customId.split('_')
-    // Format: embed_modal_CHANNELID_COLOR_IMAGE_THUMBNAIL_FOOTER_FOOTERICON_AUTHOR_AUTHORICON
-    const canalId = parts[2]
-    const couleur = parts[3]
-    const image = parts[4] === 'none' ? null : parts[4]
-    const thumbnail = parts[5] === 'none' ? null : parts[5]
-    const footer = parts[6] === 'none' ? null : parts[6]
-    const footerIcon = parts[7] === 'none' ? null : parts[7]
-    const author = parts[8] === 'none' ? null : parts[8]
-    const authorIcon = parts[9] === 'none' ? null : parts[9]
+  if (interaction.isModalSubmit() && interaction.customId === 'embed_modal') {
+    const userId = interaction.user.id
+    const options = pendingEmbeds.get(userId)
+
+    if (!options) {
+      return interaction.reply({ content: '❌ Session expirée. Relance /embed.', ephemeral: true })
+    }
+
+    pendingEmbeds.delete(userId)
 
     const titre = interaction.fields.getTextInputValue('titre')
     const description = interaction.fields.getTextInputValue('description')
     const message = interaction.fields.getTextInputValue('message')
 
-    const embed = new EmbedBuilder().setColor(couleur)
+    const embed = new EmbedBuilder().setColor(options.couleur)
 
     if (titre) embed.setTitle(titre)
     if (description) embed.setDescription(description)
-    if (image) embed.setImage(image)
-    if (thumbnail) embed.setThumbnail(thumbnail)
-    if (footer) embed.setFooter({ text: footer, iconURL: footerIcon || undefined })
-    if (author) embed.setAuthor({ name: author, iconURL: authorIcon || undefined })
-
-    embed.setTimestamp()
+    if (options.image) embed.setImage(options.image)
+    if (options.thumbnail) embed.setThumbnail(options.thumbnail)
+    if (options.footer) embed.setFooter({ text: options.footer, iconURL: options.footerIcon || undefined })
+    if (options.author) embed.setAuthor({ name: options.author, iconURL: options.authorIcon || undefined })
 
     try {
-      const channel = await client.channels.fetch(canalId)
+      const channel = await client.channels.fetch(options.canalId)
       await channel.send({
         content: message || undefined,
         embeds: [embed]
