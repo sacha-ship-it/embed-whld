@@ -1,4 +1,4 @@
-cconst { Client, GatewayIntentBits, EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, REST, Routes, SlashCommandBuilder } = require("discord.js")
+const { Client, GatewayIntentBits, EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, REST, Routes, SlashCommandBuilder } = require("discord.js")
 
 const TOKEN = process.env.TOKEN
 const CLIENT_ID = process.env.CLIENT_ID
