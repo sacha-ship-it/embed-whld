@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, REST, Routes, SlashCommandBuilder } = require("discord.js")
+cconst { Client, GatewayIntentBits, EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, REST, Routes, SlashCommandBuilder } = require("discord.js")
 
 const TOKEN = process.env.TOKEN
 const CLIENT_ID = process.env.CLIENT_ID
@@ -110,11 +110,23 @@ client.on("interactionCreate", async interaction => {
 
     try {
       const channel = await client.channels.fetch(options.canalId)
-      await channel.send({
-        content: message || undefined,
-        embeds: [embed]
-      })
-      await interaction.reply({ content: "Embed envoye dans " + channel.toString() + " !", ephemeral: true })
+
+      if (channel.type === 15) {
+        await channel.threads.create({
+          name: titre || "Nouveau post",
+          message: {
+            content: message || undefined,
+            embeds: [embed]
+          }
+        })
+      } else {
+        await channel.send({
+          content: message || undefined,
+          embeds: [embed]
+        })
+      }
+
+      await interaction.reply({ content: "Embed envoye !", ephemeral: true })
     } catch (e) {
       console.error(e)
       await interaction.reply({ content: "Erreur lors de l'envoi. Verifie que le bot a acces au canal.", ephemeral: true })
